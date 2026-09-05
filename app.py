@@ -136,14 +136,12 @@ def calculate_player(player_data):
     for tier_name, threshold in sorted_tiers:
         if not np.isnan(avg_weighted) and avg_weighted >= threshold:
             tier = tier_name
-            # находим следующий уровень (выше текущего)
             for t, th in sorted_tiers:
                 if th > avg_weighted:
                     next_tier = t
                     next_threshold = th
                     break
             break
-    # если игрок уже в Тир 1, следующего нет
     if tier == "Тир 1":
         next_tier = None
         next_threshold = None
@@ -202,17 +200,17 @@ if players:
     col1, col2, col3, col4 = st.columns([1, 1, 1, 2])
     with col1:
         confirm_delete_all = st.checkbox("Подтвердить удаление всех")
-        if st.button("🗑️ Удалить всех игроков") and confirm_delete_all:
-            players.clear()
-            data["players"] = players
-            save_data(data)
-            st.rerun()
-        elif st.button("🗑️ Удалить всех игроков") and not confirm_delete_all:
-            st.warning("Поставьте галочку подтверждения")
+        if st.button("🗑️ Удалить всех игроков", key="delete_all_btn"):
+            if confirm_delete_all:
+                players.clear()
+                data["players"] = players
+                save_data(data)
+                st.rerun()
+            else:
+                st.warning("Поставьте галочку подтверждения")
     with col2:
         csv = df.drop(columns=["ID"]).to_csv(index=False, sep=';', decimal=',')
         st.download_button("📥 Скачать CSV", data=csv, file_name="players_ratings.csv", mime="text/csv")
-        # Экспорт Excel
         try:
             import openpyxl
             output = io.BytesIO()
@@ -223,7 +221,6 @@ if players:
         except ImportError:
             st.caption("Для Excel установите openpyxl: pip install openpyxl")
     with col4:
-        # Сравнение игроков с мультивыбором
         if len(players) > 1:
             player_names = [p["name"] for p in players]
             selected_for_compare = st.multiselect("Выберите игроков для сравнения", player_names, default=player_names[:2] if len(player_names)>=2 else player_names)
@@ -242,24 +239,25 @@ if players:
                     line_close=True,
                     title="Радарная диаграмма игроков"
                 )
-                st.plotly_chart(fig, use_container_width=True)  # у plotly пока оставляем
+                st.plotly_chart(fig, use_container_width=True)
 
-    # Удаление конкретного игрока
+    # Удаление конкретного игрока (только одна кнопка)
     st.subheader("🗑️ Удалить игрока")
     player_names = [p["name"] for p in players]
     selected_to_delete = st.selectbox("Выберите игрока для удаления", player_names, key="delete_select")
     confirm_delete_one = st.checkbox("Подтвердить удаление", key="confirm_one")
-    if st.button("Удалить выбранного игрока") and confirm_delete_one:
-        for i, p in enumerate(players):
-            if p["name"] == selected_to_delete:
-                del players[i]
-                break
-        data["players"] = players
-        save_data(data)
-        st.success(f"Игрок {selected_to_delete} удалён!")
-        st.rerun()
-    elif st.button("Удалить выбранного игрока") and not confirm_delete_one:
-        st.warning("Поставьте галочку подтверждения")
+    if st.button("Удалить выбранного игрока", key="delete_one_btn"):
+        if confirm_delete_one:
+            for i, p in enumerate(players):
+                if p["name"] == selected_to_delete:
+                    del players[i]
+                    break
+            data["players"] = players
+            save_data(data)
+            st.success(f"Игрок {selected_to_delete} удалён!")
+            st.rerun()
+        else:
+            st.warning("Поставьте галочку подтверждения")
 
     # Гистограмма распределения уровней
     st.subheader("📊 Распределение по уровням")
@@ -285,7 +283,6 @@ else:
     name_edit = ""
     ratings_edit = {param: [10.0]*num_raters for param in weights.keys()}
 
-# Создаём DataFrame для data_editor
 params = list(weights.keys())
 index_labels = [f"Оценщик {i+1}" for i in range(num_raters)]
 default_df = pd.DataFrame(
@@ -295,7 +292,6 @@ default_df = pd.DataFrame(
 
 with st.form(key="add_player_form"):
     name = st.text_input("Имя игрока", value=name_edit)
-    # data_editor для оценок
     edited_df = st.data_editor(
         default_df,
         width='stretch',
@@ -310,11 +306,9 @@ with st.form(key="add_player_form"):
         if edit_idx is not None:
             cancel_edit = st.form_submit_button("❌ Отменить редактирование")
         else:
-            # Кнопка сброса формы – просто перезагружаем
             reset = st.form_submit_button("🔄 Сбросить форму")
 
     if submit and name.strip():
-        # Преобразуем edited_df в словарь ratings
         ratings = {param: edited_df[param].tolist() for param in params}
         player_data = {"name": name.strip(), "ratings": ratings}
         if edit_idx is not None and 0 <= edit_idx < len(players):
@@ -354,7 +348,6 @@ with st.expander("📐 Как рассчитывается итоговый ба
     **3. Итоговый балл (с весом)** – сумма (средняя_по_параметру × вес_параметра) / сумма_весов.  
     **4. Уровень (Тир)** – определяется по шкале, заданной в настройках.
     """)
-    # Покажем описания параметров
     st.markdown("**Описание параметров:**")
     for param, desc in PARAM_DESCRIPTIONS.items():
         st.caption(f"**{param}** – {desc}")
