@@ -187,11 +187,27 @@ if players:
                 st.plotly_chart(fig, use_container_width=True)
         else:
             st.caption("Добавьте больше игроков для сравнения.")
+
+    # ---------- УДАЛЕНИЕ КОНКРЕТНОГО ИГРОКА ----------
+    st.subheader("🗑️ Удалить игрока")
+    player_names = [p["name"] for p in players]
+    selected_to_delete = st.selectbox("Выберите игрока для удаления", player_names, key="delete_select")
+    if st.button("Удалить выбранного игрока"):
+        for i, p in enumerate(players):
+            if p["name"] == selected_to_delete:
+                del players[i]
+                break
+        data["players"] = players
+        save_data(data)
+        st.success(f"Игрок {selected_to_delete} удалён!")
+        st.rerun()
+
 else:
     st.info("Пока нет добавленных игроков. Добавьте первого!")
 
 # ---------- ФОРМА ДОБАВЛЕНИЯ / РЕДАКТИРОВАНИЯ ----------
 st.subheader("➕ Добавить нового игрока")
+st.caption("💡 По умолчанию оценки выставлены на 10 – вы можете их изменить.")
 
 edit_idx = st.session_state.get("edit_idx", None)
 if edit_idx is not None and 0 <= edit_idx < len(players):
@@ -201,7 +217,7 @@ if edit_idx is not None and 0 <= edit_idx < len(players):
     st.info(f"✏️ Редактируем игрока: {name_edit}")
 else:
     name_edit = ""
-    ratings_edit = {param: [5.0]*num_raters for param in weights.keys()}
+    ratings_edit = {param: [10.0]*num_raters for param in weights.keys()}
 
 with st.form(key="add_player_form"):
     name = st.text_input("Имя игрока", value=name_edit)
@@ -209,13 +225,13 @@ with st.form(key="add_player_form"):
     for i, (param, w) in enumerate(weights.items()):
         st.write(f"**{param}** (вес {w*100:.0f}%)")
         scores = []
-        default_scores = ratings_edit.get(param, [5.0]*num_raters)
+        default_scores = ratings_edit.get(param, [10.0]*num_raters)
         for r in range(num_raters):
             val = st.number_input(
                 f"Оценщик {r+1}",
                 min_value=0.0,
                 max_value=10.0,
-                value=float(default_scores[r]) if r < len(default_scores) else 5.0,
+                value=float(default_scores[r]) if r < len(default_scores) else 10.0,
                 step=0.5,
                 key=f"{param}_{r}_{edit_idx or 0}_{i}"
             )
@@ -262,7 +278,7 @@ with st.expander("📐 Как рассчитывается итоговый ба
     st.markdown("""
     **1. Средняя оценка по параметру** – среднее арифметическое оценок всех оценщиков.  
     **2. Средний балл (без веса)** – среднее арифметическое средних оценок по всем параметрам.  
-    **3. Итоговый балл (с весом)** – сумма (средняя_по_параметру × вес_параметра).  
+    **3. Итоговый балл (с весом)** – сумма (средняя_по_параметру × вес_параметра) / сумма_весов.  
     **4. Уровень (Тир)** – определяется по шкале, заданной в настройках.
     """)
 
